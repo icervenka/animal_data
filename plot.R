@@ -82,3 +82,64 @@ plot_grip_strength_time <- function(data, filter_module, time_factor = c("pre", 
         xlab("") +
         ylab("force [N]")
 }
+
+plot_mri = function(data, bw_norm_data = NULL, facet_sex = F) {
+  p = data %>%
+    dplyr::filter(exp_type == "mri", exp_sub_2 == "percentage") %>%
+    group_by(batch, subject, group, sex, exp_sub_1, exp_sub_2) %>%
+    summarise(percentage = mean(value)) %>%
+    ggplot(aes(x = group, y = percentage)) +
+    geom_boxplot(aes(fill = group)) + 
+    geom_jitter(width = 0.15, size = 0.5) + 
+    expand_limits(y = 0) + 
+    theme_bw() + 
+    theme(legend.position = "none") + 
+    ylab("% body weight")
+  
+  if(facet_sex) {
+    p + facet_grid(sex ~ exp_sub_1, scales = "free")
+  } else {
+    p + facet_wrap(~ exp_sub_1, scales = "free")
+  }
+}
+
+plot_gtt = function(data) {
+  data %>%
+    dplyr::filter(exp_type == "gtt") %>%
+    dplyr::mutate(exp_sub_1 = as.numeric(exp_sub_1)) %>%
+    group_by(sex, group, exp_sub_1) %>%
+    summarise(avg = mean(value), sd = sd(value), sem=sd/sqrt(n())) %>%
+    ggplot(aes(x = exp_sub_1, y = avg, group = group, color = group)) +
+    geom_line(size = 1.1) +
+    geom_jitter(data = data %>% 
+                  dplyr::filter(exp_type == "gtt") %>%
+                  dplyr::mutate(exp_sub_1 = as.numeric(exp_sub_1)), 
+                aes(x = exp_sub_1, y = value, group = group, color = group), size = 1.15) +
+    geom_errorbar(aes(x = exp_sub_1, ymin = avg - sem, ymax = avg + sem), width = 4, size = 0.75) +
+    expand_limits(y = 0) + 
+    theme_bw() +
+    ylab("glucose [mM]") + 
+    xlab("time [min]")
+}
+
+plot_muscle_weights = function(data, beds = c("SOL", "EDL", "TA", "GA"), facet_sex = F) {
+  p = data %>%
+    dplyr::filter(exp_type == "weight", exp_sub_1 %in% beds) %>%
+    group_by(batch, subject, genotype, sex, exp_sub_1, exp_sub_2) %>%
+    summarise(avg = mean(value)) %>%
+    ungroup() %>%
+    dplyr::mutate(exp_sub_1 = fct_relevel(exp_sub_1, beds), 
+                  exp_sub_2 = fct_relevel(exp_sub_2, c("raw", "bw", "lean"))) %>%
+    ggplot(aes(x = genotype, y = avg)) +
+    geom_boxplot(aes(fill = genotype)) + 
+    geom_jitter(width = 0.15, size = 0.75) + 
+    theme_bw()+ 
+    theme(legend.position = "none") +
+    ylab("weight")
+  
+  if(facet_sex) {
+    p + facet_wrap(exp_sub_2 ~ exp_sub_1 + sex, scales = "free")
+  } else {
+    p + facet_wrap(exp_sub_2 ~ exp_sub_1, scales = "free")
+  }
+}
