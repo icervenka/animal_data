@@ -19,6 +19,52 @@ plot_bodyweight <- function(data, facet_sex = F) {
     }
 }
 
+plot_bodyweight_scatter = function(data, facet_sex = T) {
+  p = data %>%
+    dplyr::filter(exp_type == "weight", exp_sub_1 == "body") %>%
+    group_by(batch, subject, group, sex, days) %>%
+    summarise(avg = mean(value)) %>%
+    drop_na() %>%
+    ggplot(aes(x = days, y = avg, color = group)) +
+    geom_point() + 
+    # geom_boxplot(aes(fill = group)) + 
+    # geom_jitter(width = 0.15, size = 0.5) + 
+    # expand_limits(y = 0) +
+    theme_bw() + 
+    #theme(legend.position = "none") +
+    ylab("body weight [g]") +
+    stat_smooth(aes(fill = group), method = "lm", alpha = 0.2)
+  
+  if(facet_sex) {
+    p + facet_wrap(~ sex)
+  } else {
+    p
+  }
+}
+
+plot_bodyweight_time_barplot = function(data, frequency = "months", facet_sex = T) {
+  p = data %>%
+    dplyr::filter(exp_type == "weight", exp_sub_1 == "body") %>%
+    mutate(months = as.factor(as.numeric(months)), 
+           weeks = as.factor(as.numeric(weeks))) %>%
+    group_by(batch, subject, group, sex, !!as.symbol(frequency)) %>%
+    summarise(avg = mean(value)) %>%
+    drop_na() %>%
+    ggplot(aes(x = !!as.symbol(frequency), y = avg, fill = group)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_point(position=position_jitterdodge(), size = 0.5) +
+    expand_limits(y = 0) +
+    theme_bw() + 
+    theme(legend.position = "none") +
+    ylab("body weight [g]")
+  
+  if(facet_sex) {
+    p + facet_wrap(~ sex)
+  } else {
+    p
+  }
+}
+
 plot_grip_strength <- function(data, lean_norm_data = NULL, bw_norm_data = NULL) {
     # TODO from multiple weights use specific one for grip strength normalization
     p <- data %>%
@@ -120,6 +166,44 @@ plot_gtt = function(data) {
     theme_bw() +
     ylab("glucose [mM]") + 
     xlab("time [min]")
+}
+
+plot_gtt_auc = function(data) {
+  data %>%
+    dplyr::filter(exp_type == "gtt") %>%
+    dplyr::mutate(exp_sub_1 = as.numeric(exp_sub_1)) %>%
+    left_join(data %>%
+                dplyr::filter(exp_type == "gtt") %>%
+                dplyr::mutate(exp_sub_1 = as.numeric(exp_sub_1)) %>%
+                filter(exp_sub_1 == 0) %>%
+                select(subject, baseline = value),
+              by = "subject") %>%
+    mutate(value_norm = value - baseline) %>%
+    group_by(sex, group, subject) %>%
+    summarise(auc = auc(exp_sub_1, value_norm)) %>%
+    ggplot(aes(x = group, y = auc)) +
+    geom_boxplot(aes(fill = group), outlier.shape = NA) + 
+    geom_jitter(width = 0.15, size = 0.75) + 
+    theme_bw()+ 
+    theme(legend.position = "none") +
+    expand_limits(y = 0) +
+    ylab("auc")
+}
+
+plot_gtt_timepoint = function(data, timepoint = 0) {
+  data %>%
+    dplyr::filter(exp_type == "gtt") %>%
+    dplyr::mutate(exp_sub_1 = as.numeric(exp_sub_1)) %>%
+    filter(exp_sub_1 == timepoint) %>%
+    group_by(sex, group, subject) %>%
+    summarise(avg = mean(value)) %>%
+    ggplot(aes(x = group, y = avg)) +
+    geom_boxplot(aes(fill = group), outlier.shape = NA) + 
+    geom_jitter(width = 0.15, size = 0.75) + 
+    theme_bw()+ 
+    theme(legend.position = "none") +
+    expand_limits(y = 0) +
+    ylab("glucose [mM]")
 }
 
 plot_muscle_weights = function(data, beds = c("SOL", "EDL", "TA", "GA"), facet_sex = F) {
