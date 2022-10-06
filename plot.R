@@ -1,9 +1,32 @@
-plot_bodyweight <- function(data, facet_sex = F) {
+filter_bodyweight = function(data, replicate = NULL) {
+  data = data %>%
+    dplyr::filter(exp_type == "weight", exp_sub_1 == "body")
+  
+  if(!is.null(replicate)) {
+    data = data %>%
+      dplyr::filter(replicate == replicate)
+  }
+  return(data)
+}
+
+summarize_bodyweight = function(data) {
+  data = data %>%
+    group_by(batch, subject, group, sex) %>%
+    summarise(avg = mean(value)) %>%
+    drop_na()
+  return(data)
+}
+
+summarize_bodyweight_frequency(data, frequency = months) {
+  data = data %>%
+    group_by(batch, subject, group, sex, {{ frequency }}) %>%
+    summarise(avg = mean(value)) %>%
+    drop_na()
+  return(data)
+}
+
+plot_bodyweight <- function(data, facet_sex = TRUE) {
     p <- data %>%
-        dplyr::filter(exp_type == "weight", exp_sub_1 == "body") %>%
-        group_by(batch, subject, group, sex) %>%
-        summarise(avg = mean(value)) %>%
-        drop_na() %>%
         ggplot(aes(x = group, y = avg)) +
         geom_boxplot(aes(fill = group)) +
         geom_jitter(width = 0.15, size = 0.5) +
@@ -12,44 +35,52 @@ plot_bodyweight <- function(data, facet_sex = F) {
         theme(legend.position = "none") +
         ylab("body weight [g]")
 
-    if (facet_sex) {
-        p + facet_wrap(~sex)
-    } else {
-        p
-    }
+    ifelse(facet_sex, p + facet_wrap(~sex), p)
+    return(p)
 }
 
-plot_bodyweight_scatter = function(data, facet_sex = T) {
+plot_bodyweight_time = function(data, type = "boxplot", facet_sex = TRUE) {
+  freq_colnames = c("days", "weeks", "months")
+  
+  frequency = freq_colnames[freq_colnames %in% colnames(data)][1]
+  if(is.na(frequency)) {
+    print(
+      paste0(
+      "None of the required frequency variables: ",
+      paste(freq_colnames, collapse = " "),
+      "are present in the data.\n"
+      )
+    )
+  }
+  
   p = data %>%
-    dplyr::filter(exp_type == "weight", exp_sub_1 == "body") %>%
-    group_by(batch, subject, group, sex, days) %>%
-    summarise(avg = mean(value)) %>%
-    drop_na() %>%
-    ggplot(aes(x = days, y = avg, color = group)) +
-    geom_point() + 
-    # geom_boxplot(aes(fill = group)) + 
-    # geom_jitter(width = 0.15, size = 0.5) + 
+    ggplot(aes(x = !!as.symbol(frequency), y = avg))
+  
+  if(type == "boxplot") {
+    p = p +
+      geom_boxplot(aes(fill = group), outlier.shape = NA) +
+      geom_point(position=position_jitterdodge(), size = 0.5)
+  } else if(type == "scatter") {
+    p = p + 
+      geom_point(aes(color = group)) + 
+      stat_smooth(aes(fill = group), method = "lm", alpha = 0.2)
+  } else if(type == "barplot") {
+    p = p + 
+      geom_bar(aes(fill = group), stat = "identity")
+  }
+    
+  p = p +
     # expand_limits(y = 0) +
     theme_bw() + 
     #theme(legend.position = "none") +
-    ylab("body weight [g]") +
-    stat_smooth(aes(fill = group), method = "lm", alpha = 0.2)
-  
-  if(facet_sex) {
-    p + facet_wrap(~ sex)
-  } else {
-    p
-  }
+    ylab("body weight [g]")
+    
+  ifelse(facet_sex, p + facet_wrap(~sex), p)
+  return(p)
 }
 
-plot_bodyweight_time_barplot = function(data, frequency = "months", facet_sex = T) {
+plot_bodyweight_time_barplot = function(data, facet_sex = TRUE) {
   p = data %>%
-    dplyr::filter(exp_type == "weight", exp_sub_1 == "body") %>%
-    mutate(months = as.factor(as.numeric(months)), 
-           weeks = as.factor(as.numeric(weeks))) %>%
-    group_by(batch, subject, group, sex, !!as.symbol(frequency)) %>%
-    summarise(avg = mean(value)) %>%
-    drop_na() %>%
     ggplot(aes(x = !!as.symbol(frequency), y = avg, fill = group)) +
     geom_boxplot(outlier.shape = NA) +
     geom_point(position=position_jitterdodge(), size = 0.5) +
@@ -58,11 +89,8 @@ plot_bodyweight_time_barplot = function(data, frequency = "months", facet_sex = 
     theme(legend.position = "none") +
     ylab("body weight [g]")
   
-  if(facet_sex) {
-    p + facet_wrap(~ sex)
-  } else {
-    p
-  }
+  ifelse(facet_sex, p + facet_wrap(~sex), p)
+  return(p)
 }
 
 plot_grip_strength <- function(data, lean_norm_data = NULL, bw_norm_data = NULL) {
