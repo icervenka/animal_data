@@ -1,4 +1,4 @@
-library("magrittr")
+library(magrittr, include.only = "%>%")
 
 # reading functions -------------------
 parse_directory_structure <- function(path,
@@ -10,7 +10,7 @@ parse_directory_structure <- function(path,
     folder_full = dir(path, full.names = TRUE, no.. = TRUE),
     folder_name = dir(path, no.. = TRUE), stringsAsFactors = FALSE
   ) %>%
-    separate(folder_name,
+    tidyr::separate(folder_name,
       into = c("driver", "gene", "type", "cohort"),
       remove = FALSE
     ) %>%
@@ -49,9 +49,9 @@ read_data <- function(cohort_files,
                       date_format = "%Y%m%d",
                       time_rounding_func = base::round) {
   metadata <- purrr::map_dfr(cohort_files$metadata, function(x) {
-    read_delim(x, delim = "\t", col_types = metadata_column_types)
+    readr::read_delim(x, delim = "\t", col_types = metadata_column_types)
   }) %>%
-    mutate(group = factor(group, levels = group_levels))
+    dplyr::mutate(group = factor(group, levels = group_levels))
 
   data <- purrr::map_dfr(cohort_files$data, function(x) {
     sheets <- readxl::excel_sheets(x)
