@@ -15,7 +15,20 @@ default_boxplot_style <- function() {
 # TODO find a way to filter certain ages
 # TODO create a general filtering function
 
-filter_experiment <- function(data, experiment) {
+filter <- function(data, experiment_type, cohorts = NULL, subjects = NULL,
+                   age = NULL, replicate = NULL) {
+  exp_type <- list(
+    "bodyweight" = list("exp_type" = "weight", "exp_sub_1" = "body"),
+    "mri" = list("exp_type" = "mri", "exp_sub_1" = c("fat", "lean"), "exp_type_2" = "percentage"),
+    "gtt" = list("exp_type" = "gtt"),
+    "muscle_weights" = list("exp_type" = "weight", "exp_sub_1" = c("SOL", "EDL", "TA", "GA"))
+  )
+  # deparse(sys.calls())
+  # deparse(sys.calls()[[sys.nframe()-1]])
+  as.character(match.call()[[1]])
+}
+
+filter_experiment_type <- function(data, experiment_type) {
 
 }
 
@@ -85,11 +98,17 @@ plot_bodyweight_time <- function(data, type = "boxplot", facet_sex = TRUE) {
   if (type == "boxplot") {
     p <- p +
       ggplot2::geom_boxplot(ggplot2::aes(fill = group), outlier.shape = NA) +
-      ggplot2::geom_point(position = ggplot2::position_jitterdodge(), size = 0.5)
+      ggplot2::geom_point(
+        position = ggplot2::position_jitterdodge(),
+        size = 0.5
+      )
   } else if (type == "scatter") {
     p <- p +
       ggplot2::geom_point(ggplot2::aes(color = group)) +
-      ggplot2::stat_smooth(ggplot2::aes(fill = group), method = "lm", alpha = 0.2)
+      ggplot2::stat_smooth(ggplot2::aes(fill = group),
+        method = "lm",
+        alpha = 0.2
+      )
   } else if (type == "barplot") {
     p <- p +
       ggplot2::geom_bar(ggplot2::aes(fill = group), stat = "identity")
@@ -106,39 +125,70 @@ plot_bodyweight_time <- function(data, type = "boxplot", facet_sex = TRUE) {
 }
 
 # grip strength functions ------------------------------------------------------
-plot_grip_strength <- function(data, lean_norm_data = NULL, bw_norm_data = NULL) {
-  # TODO from multiple weights use specific one for grip strength normalization
-  p <- data %>%
-    dplyr::filter(exp_type == "grip_strength") %>%
-    dplyr::mutate(raw = value) %>%
-    dplyr::left_join(data %>%
-      dplyr::filter(
-        exp_type == "mri",
-        exp_sub_1 == "lean",
-        exp_sub_2 == "raw"
-      ) %>%
-      dplyr::select(subject, lean_mass = value), by = "subject") %>%
-    dplyr::left_join(data %>%
-      dplyr::filter(exp_type == "weight", exp_sub_1 == "body") %>%
-      dplyr::group_by(subject) %>%
-      dplyr::summarise(bw = mean(value)), by = "subject") %>%
-    dplyr::mutate(norm_lean = raw / lean_mass, norm_bw = raw / bw) %>%
-    dplyr::select(-value) %>%
-    tidyr::pivot_longer(
-      cols = c(raw, norm_lean, norm_bw),
-      names_to = "normalized"
-    ) %>%
-    dplyr::mutate(normalized = fct_relevel(normalized, c("raw", "norm_bw", "norm_lean"))) %>%
-    dplyr::group_by(batch, subject, group, sex, exp_sub_1, exp_sub_2, normalized) %>%
+# plot_grip_strength <- function(data,
+#                                lean_norm_data = NULL,
+#                                bw_norm_data = NULL) {
+#   # TODO from multiple weights use specific one for grip strength normalization
+#   p <- data %>%
+#     dplyr::filter(exp_type == "grip_strength") %>%
+#     dplyr::mutate(raw = value) %>%
+#     dplyr::left_join(data %>%
+#       dplyr::filter(
+#         exp_type == "mri",
+#         exp_sub_1 == "lean",
+#         exp_sub_2 == "raw"
+#       ) %>%
+#       dplyr::select(subject, lean_mass = value), by = "subject") %>%
+#     dplyr::left_join(data %>%
+#       dplyr::filter(exp_type == "weight", exp_sub_1 == "body") %>%
+#       dplyr::group_by(subject) %>%
+#       dplyr::summarise(bw = mean(value)), by = "subject") %>%
+#     dplyr::mutate(norm_lean = raw / lean_mass, norm_bw = raw / bw) %>%
+#     dplyr::select(-value) %>%
+#     tidyr::pivot_longer(
+#       cols = c(raw, norm_lean, norm_bw),
+#       names_to = "normalized"
+#     ) %>%
+#     dplyr::mutate(normalized = fct_relevel(normalized, c("raw", "norm_bw", "norm_lean"))) %>%
+#     dplyr::group_by(batch, subject, group, sex, exp_sub_1, exp_sub_2, normalized) %>%
+#     dplyr::summarise(avg = mean(value)) %>%
+#     ggplot2::ggplot(ggplot2::aes(x = group, y = avg)) +
+#     ggplot2::geom_boxplot(ggplot2::aes(fill = group)) +
+#     ggplot2::geom_jitter(width = 0.15, size = 0.5) +
+#     ggplot2::expand_limits(y = 0) +
+#     ggplot2::facet_grid(normalized ~ exp_sub_1, scales = "free") +
+#     ggplot2::theme_bw() +
+#     ggplot2::theme(legend.position = "none") +
+#     ggplot2::ylab("force [N]")
+#   return(p)
+# }
+
+filter_grip_strength <- function(data) {
+  data <- data %>%
+    dplyr::filter(exp_type == "grip_strength")
+}
+
+summarize_grip_strength <- function(data) {
+  data <- data %>%
+    dplyr::group_by(batch, subject, group, sex, exp_sub_1, exp_sub_2) %>%
     dplyr::summarise(avg = mean(value)) %>%
+    tidyr::drop_na()
+  return(data)
+}
+
+plot_grip_strength <- function(data, facet_sex = TRUE) {
+  p <- data %>%
     ggplot2::ggplot(ggplot2::aes(x = group, y = avg)) +
     ggplot2::geom_boxplot(ggplot2::aes(fill = group)) +
-    ggplot2::geom_jitter(width = 0.15, size = 0.5) +
-    ggplot2::expand_limits(y = 0) +
-    ggplot2::facet_grid(normalized ~ exp_sub_1, scales = "free") +
-    ggplot2::theme_bw() +
-    ggplot2::theme(legend.position = "none") +
+    default_boxplot_style() +
     ggplot2::ylab("force [N]")
+
+  if (facet_sex) {
+    p <- p + ggplot2::facet_grid(sex ~ exp_sub_1 + exp_sub_2, scales = "free")
+  } else {
+    p <- p + ggplot2::facet_wrap(~ exp_sub_1 + exp_sub_2, scales = "free")
+  }
+
   return(p)
 }
 
@@ -230,13 +280,31 @@ filter_gtt <- function(data,
 plot_gtt <- function(data) {
   data <- data %>%
     dplyr::group_by(sex, group, exp_sub_1) %>%
-    dplyr::summarise(avg = mean(value), sd = sd(value), sem = sd / sqrt(dplyr::n())) %>%
-    ggplot2::ggplot(ggplot2::aes(x = exp_sub_1, y = avg, group = group, color = group)) +
+    dplyr::summarise(
+      avg = mean(value),
+      sd = sd(value),
+      sem = sd / sqrt(dplyr::n())
+    ) %>%
+    ggplot2::ggplot(ggplot2::aes(
+      x = exp_sub_1,
+      y = avg,
+      group = group,
+      color = group
+    )) +
     ggplot2::geom_line(size = 1.1) +
-    ggplot2::geom_jitter(ggplot2::aes(x = exp_sub_1, y = value), size = 1.15) +
-    ggplot2::geom_errorbar(ggplot2::aes(x = exp_sub_1, ymin = avg - sem, ymax = avg + sem),
-      width = 4,
-      size = 0.75
+    ggplot2::geom_jitter(ggplot2::aes(
+      x = exp_sub_1,
+      y = value
+    ),
+    size = 1.15
+    ) +
+    ggplot2::geom_errorbar(ggplot2::aes(
+      x = exp_sub_1,
+      ymin = avg - sem,
+      ymax = avg + sem
+    ),
+    width = 4,
+    size = 0.75
     ) +
     ggplot2::expand_limits(y = 0) +
     ggplot2::theme_bw() +
@@ -275,7 +343,9 @@ plot_gtt_timepoint <- function(data, timepoint = 0) {
 }
 
 # muscle weights functions -----------------------------------------------------
-plot_muscle_weights <- function(data, beds = c("SOL", "EDL", "TA", "GA"), facet_sex = F) {
+plot_muscle_weights <- function(data,
+                                beds = c("SOL", "EDL", "TA", "GA"),
+                                facet_sex = TRUE) {
   p <- data %>%
     dplyr::filter(exp_type == "weight", exp_sub_1 %in% beds) %>%
     dplyr::group_by(batch, subject, genotype, sex, exp_sub_1, exp_sub_2) %>%
@@ -298,3 +368,5 @@ plot_muscle_weights <- function(data, beds = c("SOL", "EDL", "TA", "GA"), facet_
     p + ggplot2::facet_wrap(exp_sub_2 ~ exp_sub_1, scales = "free")
   }
 }
+
+# force measurement functions --------------------------------------------------
