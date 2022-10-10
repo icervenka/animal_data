@@ -192,39 +192,79 @@ plot_grip_strength <- function(data, facet_sex = TRUE) {
   return(p)
 }
 
-plot_grip_strength_time <- function(data, filter_module, time_factor = c("pre", "Day1", "Day2", "Day3", "Day14"), lean_norm_data = NULL, bw_norm_data = NULL) {
-  base_data <- data %>%
-    dplyr::filter(module == filter_module) %>%
-    dplyr::filter(exp_type == "grip_strength") %>%
-    dplyr::mutate(exp_sub_2 = fct_relevel(exp_sub_2, time_factor)) %>%
-    dplyr::mutate(raw = value) %>%
-    dplyr::left_join(data %>%
-      dplyr::filter(exp_type == "mri", exp_sub_1 == "lean", exp_sub_2 == "raw") %>%
-      dplyr::select(subject, lean_mass = value), by = "subject") %>%
-    dplyr::left_join(data %>%
-      dplyr::filter(exp_type == "weight", exp_sub_1 == "body", module == filter_module) %>%
-      dplyr::group_by(subject) %>%
-      dplyr::summarise(bw = mean(value, na.rm = T)), by = "subject") %>%
-    dplyr::mutate(norm_lean = raw / lean_mass, norm_bw = raw / bw) %>%
-    dplyr::select(-value) %>%
-    tidyr::pivot_longer(cols = c(raw, norm_lean, norm_bw), names_to = "normalized") %>%
-    dplyr::mutate(normalized = fct_relevel(normalized, c("raw", "norm_bw", "norm_lean"))) %>%
-    dplyr::group_by(subject, group, exp_sub_1, exp_sub_2, normalized)
+# plot_grip_strength_time <- function(data, filter_module, time_factor = c("pre", "Day1", "Day2", "Day3", "Day14"), lean_norm_data = NULL, bw_norm_data = NULL) {
+#   base_data <- data %>%
+#     dplyr::filter(module == filter_module) %>%
+#     dplyr::filter(exp_type == "grip_strength") %>%
+#     dplyr::mutate(exp_sub_2 = fct_relevel(exp_sub_2, time_factor)) %>%
+#     dplyr::mutate(raw = value) %>%
+#     dplyr::left_join(data %>%
+#       dplyr::filter(exp_type == "mri", exp_sub_1 == "lean", exp_sub_2 == "raw") %>%
+#       dplyr::select(subject, lean_mass = value), by = "subject") %>%
+#     dplyr::left_join(data %>%
+#       dplyr::filter(exp_type == "weight", exp_sub_1 == "body", module == filter_module) %>%
+#       dplyr::group_by(subject) %>%
+#       dplyr::summarise(bw = mean(value, na.rm = T)), by = "subject") %>%
+#     dplyr::mutate(norm_lean = raw / lean_mass, norm_bw = raw / bw) %>%
+#     dplyr::select(-value) %>%
+#     tidyr::pivot_longer(cols = c(raw, norm_lean, norm_bw), names_to = "normalized") %>%
+#     dplyr::mutate(normalized = fct_relevel(normalized, c("raw", "norm_bw", "norm_lean"))) %>%
+#     dplyr::group_by(subject, group, exp_sub_1, exp_sub_2, normalized)
 
-  base_data %>%
-    dplyr::group_by(group, exp_sub_1, exp_sub_2, normalized) %>%
-    dplyr::summarise(avg = mean(value, na.rm = T), sd = sd(value, na.rm = T), sem = sd / sqrt(dplyr::n())) %>%
-    ggplot2::ggplot(ggplot2::aes(x = exp_sub_2, y = avg, group = group, color = group)) +
+#   base_data %>%
+#     dplyr::group_by(group, exp_sub_1, exp_sub_2, normalized) %>%
+#     dplyr::summarise(avg = mean(value, na.rm = T), sd = sd(value, na.rm = T), sem = sd / sqrt(dplyr::n())) %>%
+#     ggplot2::ggplot(ggplot2::aes(x = exp_sub_2, y = avg, group = group, color = group)) +
+#     ggplot2::geom_line(size = 1.1) +
+#     ggplot2::geom_point() +
+#     ggplot2::geom_errorbar(ggplot2::aes(x = exp_sub_2, ymin = avg - sem, ymax = avg + sem), width = 0.25, size = 0.35) +
+#     ggplot2::geom_jitter(data = base_data %>% dplyr::summarise(avg = mean(value, na.rm = T)), ggplot2::aes(x = exp_sub_2, y = avg, group = group, color = group), size = 0.5, width = 0.1) +
+#     ggplot2::expand_limits(y = 0) +
+#     ggplot2::facet_grid(normalized ~ exp_sub_1, scales = "free") +
+#     ggplot2::theme_bw() +
+#     ggplot2::theme(legend.position = "none") +
+#     ggplot2::xlab("") +
+#     ggplot2::ylab("force [N]")
+# }
+
+summarize_grip_strength_time <- function(data) {
+  data <- data %>%
+    tidyr::separate(exp_sub_3, into = c(NULL, exp_sub_3), sep = "_") %>%
+    dplyr::mutate(exp_sub_3 = as.numeric(exp_sub_3)) %>%
+    dplyr::group_by(
+      batch, subject, group, sex,
+      exp_sub_1, exp_sub_2, exp_sub_3
+    ) %>%
+    dplyr::summarise(avg = mean(value)) %>%
+    tidyr::drop_na()
+  return(data)
+}
+
+plot_grip_strength_time <- function(data, facet_sex = TRUE) {
+  p <- data %>%
+    ggplot2::ggplot(ggplot2::aes(x = exp_sub_3, y = avg)) +
     ggplot2::geom_line(size = 1.1) +
     ggplot2::geom_point() +
-    ggplot2::geom_errorbar(ggplot2::aes(x = exp_sub_2, ymin = avg - sem, ymax = avg + sem), width = 0.25, size = 0.35) +
-    ggplot2::geom_jitter(data = base_data %>% dplyr::summarise(avg = mean(value, na.rm = T)), ggplot2::aes(x = exp_sub_2, y = avg, group = group, color = group), size = 0.5, width = 0.1) +
+    ggplot2::geom_errorbar(ggplot2::aes(
+      x = exp_sub_3,
+      ymin = avg - sem,
+      ymax = avg + sem
+    ),
+    width = 0.25,
+    size = 0.35
+    ) +
+    # ggplot2::geom_jitter(data = base_data %>% dplyr::summarise(avg = mean(value, na.rm = T)), ggplot2::aes(x = exp_sub_2, y = avg, group = group, color = group), size = 0.5, width = 0.1) +
     ggplot2::expand_limits(y = 0) +
-    ggplot2::facet_grid(normalized ~ exp_sub_1, scales = "free") +
     ggplot2::theme_bw() +
     ggplot2::theme(legend.position = "none") +
     ggplot2::xlab("") +
     ggplot2::ylab("force [N]")
+
+  if (facet_sex) {
+    p <- p + ggplot2::facet_grid(sex ~ exp_sub_1 + exp_sub_2, scales = "free")
+  } else {
+    p <- p + ggplot2::facet_wrap(exp_sub_1 ~ exp_sub_2, scales = "free")
+  }
 }
 
 # mri functions ----------------------------------------------------------------
