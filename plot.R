@@ -11,35 +11,6 @@ default_boxplot_style <- function() {
   )
 }
 
-# general functions ------------------------------------------------------------
-# TODO find a way to filter certain ages
-# TODO create a general filtering function
-
-filter <- function(data, experiment_type, cohorts = NULL, subjects = NULL,
-                   age = NULL, replicate = NULL) {
-  exp_type <- list(
-    "bodyweight" = list("exp_type" = "weight", "exp_sub_1" = "body"),
-    "mri" = list("exp_type" = "mri", "exp_sub_1" = c("fat", "lean"), "exp_type_2" = "percentage"),
-    "gtt" = list("exp_type" = "gtt"),
-    "muscle_weights" = list("exp_type" = "weight", "exp_sub_1" = c("SOL", "EDL", "TA", "GA"))
-  )
-  # deparse(sys.calls())
-  # deparse(sys.calls()[[sys.nframe()-1]])
-  as.character(match.call()[[1]])
-}
-
-filter_experiment_type <- function(data, experiment_type) {
-
-}
-
-filter_subject <- function(data, cohorts = NULL, subjects = NULL) {
-
-}
-
-filter_age <- function(data, age = NULL) {
-
-}
-
 # bodyweight functions ---------------------------------------------------------
 filter_bodyweight <- function(data, replicate = NULL) {
   data <- data %>%
@@ -317,7 +288,7 @@ filter_gtt <- function(data,
   return(data)
 }
 
-plot_gtt <- function(data) {
+plot_gtt <- function(data, plot_subjects = TRUE, errors = "ribbon") {
   data <- data %>%
     dplyr::group_by(sex, group, exp_sub_1) %>%
     dplyr::summarise(
@@ -331,25 +302,43 @@ plot_gtt <- function(data) {
       group = group,
       color = group
     )) +
-    ggplot2::geom_line(size = 1.1) +
-    ggplot2::geom_jitter(ggplot2::aes(
+    ggplot2::geom_line(size = 1.1)
+
+  if (plot_subjects) {
+    p <- p +
+      ggplot2::geom_jitter(
+        data = data, ggplot2::aes(
+          x = exp_sub_1,
+          y = value
+        ),
+        size = 1.15
+      )
+  }
+
+  if (errors == "ribbon") {
+    p <- p + geom_ribbon(aes(
       x = exp_sub_1,
-      y = value
-    ),
-    size = 1.15
-    ) +
-    ggplot2::geom_errorbar(ggplot2::aes(
+      ymin = avg - sem, ymax = avg + sem,
+      fill = group
+    ), alpha = 0.2)
+  } else {
+    p <- p + geom_errorbar(aes(
       x = exp_sub_1,
       ymin = avg - sem,
-      ymax = avg + sem
+      ymax = avg + sem,
+      color = group
     ),
     width = 4,
     size = 0.75
-    ) +
+    )
+  }
+
+  p <- p +
     ggplot2::expand_limits(y = 0) +
     ggplot2::theme_bw() +
     ggplot2::ylab("glucose [mM]") +
     ggplot2::xlab("time [min]")
+  return(p)
 }
 
 plot_gtt_auc <- function(data, subtract_baseline = TRUE) {
@@ -411,9 +400,9 @@ plot_muscle_weights <- function(data,
 
 # force measurement functions --------------------------------------------------
 
-filter_force_measurement = function(data,
-beds = c("SOL", "EDL", "TA", "GA"),
-replicate = NULL) {
+filter_force_measurement <- function(data,
+                                     beds = c("SOL", "EDL", "TA", "GA"),
+                                     replicate = NULL) {
   data <- data %>%
     dplyr::filter(exp_type %in% c("force", "fatigue", "recovery")) %>%
     dplyr::mutate(exp_sub_1 %in% beds) %>%
@@ -426,55 +415,54 @@ replicate = NULL) {
   return(data)
 }
 
-summarize_force_measurement = function(data) {
- data <- data %>%
+summarize_force_measurement <- function(data) {
+  data <- data %>%
     dplyr::group_by(batch, group, sex) %>%
     dplyr::summarise(avg = mean(value)) %>%
     tidyr::drop_na()
   return(data)
 }
 
-plot_force_measurement = function(data, facet_sex = T) {
-  plots = purrr::map(c(data$exp_type), function(x) {
+plot_force_measurement <- function(data, facet_sex = TRUE) {
+  plots <- purrr::map(c(data$exp_type), function(x) {
     p <- data %>%
-    dplyr::filter(exp_type == x) %>%
-    dplyr::summarise(
-      avg = mean(value),
-      sd = sd(value),
-      sem = sd / sqrt(dplyr::n())
-    ) %>%
-    ggplot2::ggplot(ggplot2::aes(
-      x = exp_sub_3,
-      y = avg,
-      color = group
-    )) +
-    ggplot2::geom_line(size = 1.1) +
-    # ggplot2::geom_jitter(ggplot2::aes(
-    #   x = exp_sub_1,
-    #   y = value
-    # ),
-    # size = 1.15
-    # ) +
-    ggplot2::geom_errorbar(ggplot2::aes(
-      x = exp_sub_3,
-      ymin = avg - sem,
-      ymax = avg + sem
-    ),
-    width = 4,
-    size = 0.75
-    ) +
-    ggplot2::expand_limits(y = 0) +
-    ggplot2::theme_bw() +
-    ggplot2::ylab("force") +
-    ggplot2::xlab("time [min]")
+      dplyr::filter(exp_type == x) %>%
+      dplyr::summarise(
+        avg = mean(value),
+        sd = sd(value),
+        sem = sd / sqrt(dplyr::n())
+      ) %>%
+      ggplot2::ggplot(ggplot2::aes(
+        x = exp_sub_3,
+        y = avg,
+        color = group
+      )) +
+      ggplot2::geom_line(size = 1.1) +
+      # ggplot2::geom_jitter(ggplot2::aes(
+      #   x = exp_sub_1,
+      #   y = value
+      # ),
+      # size = 1.15
+      # ) +
+      ggplot2::geom_errorbar(ggplot2::aes(
+        x = exp_sub_3,
+        ymin = avg - sem,
+        ymax = avg + sem
+      ),
+      width = 4,
+      size = 0.75
+      ) +
+      ggplot2::expand_limits(y = 0) +
+      ggplot2::theme_bw() +
+      ggplot2::ylab("force") +
+      ggplot2::xlab("time [min]")
 
-  if (facet_sex) {
-    p + ggplot2::facet_wrap(exp_sub_1 ~ exp_sub_2 + sex, scales = "free")
-  } else {
-    p + ggplot2::facet_wrap(exp_sub_1 ~ exp_sub_2, scales = "free")
-  }
-  }) 
+    if (facet_sex) {
+      p + ggplot2::facet_wrap(exp_sub_1 ~ exp_sub_2 + sex, scales = "free")
+    } else {
+      p + ggplot2::facet_wrap(exp_sub_1 ~ exp_sub_2, scales = "free")
+    }
+  })
 
-  
-
+  cowplot::plot_grid(plots, nrow = 3)
 }
