@@ -410,3 +410,71 @@ plot_muscle_weights <- function(data,
 }
 
 # force measurement functions --------------------------------------------------
+
+filter_force_measurement = function(data,
+beds = c("SOL", "EDL", "TA", "GA"),
+replicate = NULL) {
+  data <- data %>%
+    dplyr::filter(exp_type %in% c("force", "fatigue", "recovery")) %>%
+    dplyr::mutate(exp_sub_1 %in% beds) %>%
+    dplyr::mutate(exp_sub_3 = as.numeric(exp_sub_3))
+
+  if (!is.null(replicate)) {
+    data <- data %>%
+      dplyr::filter(replicate == replicate)
+  }
+  return(data)
+}
+
+summarize_force_measurement = function(data) {
+ data <- data %>%
+    dplyr::group_by(batch, group, sex) %>%
+    dplyr::summarise(avg = mean(value)) %>%
+    tidyr::drop_na()
+  return(data)
+}
+
+plot_force_measurement = function(data, facet_sex = T) {
+  plots = purrr::map(c(data$exp_type), function(x) {
+    p <- data %>%
+    dplyr::filter(exp_type == x) %>%
+    dplyr::summarise(
+      avg = mean(value),
+      sd = sd(value),
+      sem = sd / sqrt(dplyr::n())
+    ) %>%
+    ggplot2::ggplot(ggplot2::aes(
+      x = exp_sub_3,
+      y = avg,
+      color = group
+    )) +
+    ggplot2::geom_line(size = 1.1) +
+    # ggplot2::geom_jitter(ggplot2::aes(
+    #   x = exp_sub_1,
+    #   y = value
+    # ),
+    # size = 1.15
+    # ) +
+    ggplot2::geom_errorbar(ggplot2::aes(
+      x = exp_sub_3,
+      ymin = avg - sem,
+      ymax = avg + sem
+    ),
+    width = 4,
+    size = 0.75
+    ) +
+    ggplot2::expand_limits(y = 0) +
+    ggplot2::theme_bw() +
+    ggplot2::ylab("force") +
+    ggplot2::xlab("time [min]")
+
+  if (facet_sex) {
+    p + ggplot2::facet_wrap(exp_sub_1 ~ exp_sub_2 + sex, scales = "free")
+  } else {
+    p + ggplot2::facet_wrap(exp_sub_1 ~ exp_sub_2, scales = "free")
+  }
+  }) 
+
+  
+
+}
