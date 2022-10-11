@@ -1,0 +1,42 @@
+[
+    {
+        "graph_type": "gtt",
+        "filename": "gtt.png",
+        "dpi": 600,
+        "unit": "cm",
+        "width": 10,
+        "height": 8
+    },
+    {
+        "graph_type": "mri",
+        "filename": "mri.png",
+        "dpi": 600,
+        "unit": "cm",
+        "width": 4,
+        "height": 4
+    },
+    {
+        "graph_type": "bw",
+        "filename": "bw.png",
+        "dpi": 600,
+        "unit": "cm",
+        "width": 10,
+        "height": 8
+    },
+    {
+        "graph_type": "bw_scatter",
+        "filename": "bw_scatter.png",
+        "dpi": 600,
+        "unit": "cm",
+        "width": 16,
+        "height": 8
+    },
+    {
+        "graph_type": "gtt_auc",
+        "filename": "gtt_auc.png",
+        "dpi": 600,
+        "unit": "cm",
+        "width": 10,
+        "height": 8
+    }
+]

@@ -10,7 +10,6 @@ default_boxplot_style <- function() {
     ggplot2::expand_limits(y = 0)
   )
 }
-
 # bodyweight functions ---------------------------------------------------------
 filter_bodyweight <- function(data, replicate = NULL) {
   data <- data %>%
